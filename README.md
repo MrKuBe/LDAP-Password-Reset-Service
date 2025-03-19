@@ -1,4 +1,4 @@
-# LDAP-password-reset-service
+# LDAP-Password-Reset-Service
 Automates the process of resetting user passwords by monitoring a directory for JSON files containing reset requests.
 
 **Key Features:**
