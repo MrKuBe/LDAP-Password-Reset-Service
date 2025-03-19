@@ -1,0 +1,28 @@
+{
+    "ldap": {
+      "server": "ldap://my.ldap.server.com",
+      "domain": "mydomain.com",
+      "operatorGroup": "CN=operators-share-group,DC=mydomain,DC=com",
+      "emailDomain": "@server.com",
+      "vipGroup": "CN=vip-share-group,DC=mydomain,DC=com"
+    },
+    "share": {
+      "path": "\\\\My\\Share\\Folder"
+    },
+    "smtp": {
+      "server": "smpt.server.com",
+      "port": 25,
+      "fromAddress": "noreply@server.com",
+      "use_tls": false
+    },
+    "processed": {
+        "path": "\\\\My\\Share\\Folder\\Processed"
+    },
+    "log": {
+        "file": "myfile.log"
+    },
+    "itServiceEmail": "itservice@server.com",
+    "search_base": "DC=mydomain,DC=com",
+    "debug_mode": true,
+    "scan_interval": 60
+  }
