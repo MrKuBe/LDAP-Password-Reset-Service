@@ -21,6 +21,10 @@ import secrets
 import win32security
 import win32api
 
+# Charger la configuration depuis un fichier JSON
+with open('config.json') as f:
+    config = json.load(f)
+
 # Configuration du logging
 logging.basicConfig(
     filename=config['log']['file'],
@@ -28,13 +32,9 @@ logging.basicConfig(
     format='%(asctime)s - %(levelname)s - %(message)s'
 )
 
-# Charger la configuration depuis un fichier JSON
-with open('config.json') as f:
-    config = json.load(f)
-
 class PasswordResetService(win32serviceutil.ServiceFramework):
-    _svc_name_ = "PasswordResetService"
-    _svc_display_name_ = "Password Reset Service"
+    _svc_name_ = "LDAP_PasswordResetService"
+    _svc_display_name_ = "LDAP Password Reset Service"
     _svc_description_ = "Service to reset passwords based on JSON requests."
 
     def __init__(self, args):
