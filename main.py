@@ -8,6 +8,7 @@ from email.mime.text import MIMEText
 import smtplib
 import string
 import secrets
+from datetime import datetime
 
 # Charger la configuration depuis un fichier JSON
 with open('config.json') as f:
@@ -25,7 +26,7 @@ def get_ldap_connection():
     server = Server(config['ldap']['server'], use_ssl=True, get_info=ALL)
 
     logging.info(f"Connecting to LDAP server: {config['ldap']['server']}")
-    logging.info(f"Using username: {config['ldap']['username']}")
+    logging.info(f"Using domain: {config['ldap']['domain']}")
 
     try:
         conn = Connection(server,
@@ -43,7 +44,7 @@ def get_ldap_connection():
 
 def is_user_admin(conn, user_dn):
     """Vérifie si un utilisateur est un administrateur."""
-    conn.search(config['ldap']['search_base'], f'(member={user_dn})', attributes=['cn'])
+    conn.search(config['search_base'], f'(member={user_dn})', attributes=['cn'])
     if conn.entries:
         for entry in conn.entries:
             if 'admin' in entry.cn.lower():
@@ -52,14 +53,14 @@ def is_user_admin(conn, user_dn):
 
 def is_user_in_vip_group(conn, user_dn):
     """Vérifie si un utilisateur appartient au groupe VIP."""
-    conn.search(config['ldap']['search_base'], f'(member={user_dn})', attributes=['cn'])
+    conn.search(config['search_base'], f'(member={user_dn})', attributes=['cn'])
     if conn.entries:
         for entry in conn.entries:
             if entry.dn.lower() == config['ldap']['vipGroup'].lower():
                 return True
     return False
 
-def process_json_file(file_path):
+def process_json_file(file_path, total_files):
     """Traite un fichier JSON pour réinitialiser le mot de passe."""
     try:
         with open(file_path, 'r') as file:
@@ -68,39 +69,48 @@ def process_json_file(file_path):
         logging.error(f"Error reading JSON file {file_path}: {e}")
         return
 
+    file_date = datetime.fromtimestamp(os.path.getmtime(file_path)).strftime('%Y-%m-%d %H:%M:%S')
+    logging.info(f"Processing file: {file_path}, File date: {file_date}, Total files to process: {total_files}")
+
+    # Utilisez les clés correctes du fichier JSON
+    sponsor_email = data.get('email', 'Unknown Sponsor')
+    user_samAccountName = data.get('user_samAccountName', 'Unknown User')
+
+    logging.info(f"Sponsor: {sponsor_email}, Account to reset: {user_samAccountName}")
+
     conn = get_ldap_connection()
     if not conn:
         return
 
-    user_dn = f"CN={data['user_samAccountName']},{config['ldap']['search_base']}"
+    user_dn = f"CN={user_samAccountName},{config['search_base']}"
 
     # Vérifier si l'utilisateur est un administrateur ou dans le groupe VIP
     if is_user_admin(conn, user_dn):
-        logging.info(f"User {data['user_samAccountName']} is an admin. Skipping password reset.")
+        logging.info(f"User {user_samAccountName} is an admin. Skipping password reset.")
         return
 
     if is_user_in_vip_group(conn, user_dn):
-        logging.info(f"User {data['user_samAccountName']} is in VIP group. Skipping password reset.")
+        logging.info(f"User {user_samAccountName} is in VIP group. Skipping password reset.")
         return
 
-    new_password = generate_password(data['user_samAccountName'])
+    new_password = generate_password(user_samAccountName)
 
     if config['debug_mode']:
-        logging.info(f"DEBUG MODE: Simulating password reset for {data['user_samAccountName']}. New password would be: {new_password}")
+        logging.info(f"DEBUG MODE: Simulating password reset for {user_samAccountName}. New password would be: {new_password}")
     else:
         try:
             # Réinitialiser le mot de passe
             conn.extend.microsoft.modify_password(user_dn, new_password)
 
             if conn.result['result'] == 0:
-                logging.info(f"Password successfully reset for {data['user_samAccountName']}")
-                send_notification_email(data['user_samAccountName'], new_password, data['sponsor_email'])
-                send_notification_email(data['user_samAccountName'], new_password, config['itServiceEmail'])
+                logging.info(f"Password successfully reset for {user_samAccountName}")
+                send_notification_email(user_samAccountName, new_password, sponsor_email)
+                send_notification_email(user_samAccountName, new_password, config['itServiceEmail'])
                 move_processed_file(file_path)
                 # Forcer le changement de mot de passe à la première connexion
                 conn.modify(user_dn, {'pwdLastSet': (ldap3.MODIFY_REPLACE, [0])})
             else:
-                logging.error(f"Failed to reset password for {data['user_samAccountName']}: {conn.result['description']}")
+                logging.error(f"Failed to reset password for {user_samAccountName}: {conn.result['description']}")
         except Exception as e:
             logging.error(f"Error resetting password: {e}")
 
@@ -130,8 +140,8 @@ def send_notification_email(username, new_password, recipient_email):
     try:
         logging.info(f"Connecting to SMTP server: {config['smtp']['server']}:{config['smtp']['port']}")
         server = smtplib.SMTP(config['smtp']['server'], config['smtp']['port'])
-        server.set_debuglevel(1)  # Active le mode debug pour plus de détails
-        server.starttls()
+        if config['smtp']['use_tls']:
+            server.starttls()
         logging.info(f"Sending email to: {recipient_email}")
         server.sendmail(msg['From'], [msg['To']], msg.as_string())
         logging.info("Notification email sent successfully.")
@@ -151,10 +161,13 @@ def main():
     json_dir = config['share']['path']
 
     while True:
-        for filename in os.listdir(json_dir):
-            if filename.endswith('.json'):
-                file_path = os.path.join(json_dir, filename)
-                process_json_file(file_path)
+        files_to_process = [f for f in os.listdir(json_dir) if f.endswith('.json')]
+        total_files = len(files_to_process)
+        logging.info(f"Total files to process in this scan: {total_files}")
+
+        for filename in files_to_process:
+            file_path = os.path.join(json_dir, filename)
+            process_json_file(file_path, total_files)
 
         time.sleep(config['scan_interval'])  # Attendre selon l'intervalle défini dans le fichier de configuration
 
