@@ -61,7 +61,84 @@ def is_user_in_vip_group(conn, user_dn):
                 return True
     return False
 
+def find_user_dn(conn, sam_account_name, search_base):
+    """Recherche le DN d'un utilisateur en fonction de son samAccountName."""
+    conn.search(search_base, f'(samAccountName={sam_account_name})', attributes=['distinguishedName'])
+    if conn.entries:
+        return conn.entries[0].distinguishedName.value
+    else:
+        logging.error(f"User {sam_account_name} not found in the directory.")
+        return None
+
 def process_json_file(file_path, total_files):
+    """Traite un fichier JSON pour réinitialiser le mot de passe."""
+    try:
+        with open(file_path, 'r') as file:
+            data = json.load(file)
+    except Exception as e:
+        logging.error(f"Error reading JSON file {file_path}: {e}")
+        return
+
+    file_date = datetime.fromtimestamp(os.path.getmtime(file_path)).strftime('%Y-%m-%d %H:%M:%S')
+    logging.info(f"Processing file: {file_path}, File date: {file_date}, Total files to process: {total_files}")
+
+    sponsor_samAccountName = data.get('samAccountName', 'Unknown Sponsor')
+    user_samAccountName = data.get('user_samAccountName', 'Unknown User')
+    sponsor_email = data.get('email', 'Unknown Email')
+
+    logging.info(f"Sponsor: {sponsor_email} ({sponsor_samAccountName}), Account to reset: {user_samAccountName}")
+
+    if sponsor_samAccountName.lower() == user_samAccountName.lower():
+        logging.error(f"Self-reset attempt detected: {sponsor_samAccountName} trying to reset their own password. Request ignored.")
+        send_rejection_email(sponsor_email, user_samAccountName)
+        move_processed_file(file_path)
+        return
+
+    conn = get_ldap_connection()
+    if not conn:
+        return
+
+    # Rechercher le DN de l'utilisateur
+    user_dn = find_user_dn(conn, user_samAccountName, config['search_base'])
+    if not user_dn:
+        logging.error(f"Failed to locate user {user_samAccountName} in the directory.")
+        return
+
+    logging.info(f"Attempting to reset password for user DN: {user_dn}")
+
+    if is_user_admin(conn, user_dn):
+        logging.info(f"User {user_samAccountName} is an admin. Skipping password reset.")
+        return
+
+    if is_user_in_vip_group(conn, user_dn):
+        logging.info(f"User {user_samAccountName} is in VIP group. Skipping password reset.")
+        return
+    
+
+    new_password = generate_password(user_samAccountName)
+
+    try:
+        if not config['debug_mode']:
+            conn.extend.microsoft.modify_password(user_dn, new_password)
+
+            if conn.result['result'] == 0:
+                logging.info(f"Password successfully reset for {user_samAccountName}")
+                send_notification_email(user_samAccountName, new_password, sponsor_email)
+                send_notification_email(user_samAccountName, new_password, config['itServiceEmail'])
+                move_processed_file(file_path)
+                conn.modify(user_dn, {'pwdLastSet': (ldap3.MODIFY_REPLACE, [0])})
+            else:
+                logging.error(f"Failed to reset password for {user_samAccountName}: {conn.result['description']} (Result code: {conn.result['result']})")
+
+    except ldap3.core.exceptions.LDAPBindError as e:
+        logging.error(f"LDAP Bind Error: {e}")
+    except ldap3.core.exceptions.LDAPSocketOpenError as e:
+        logging.error(f"LDAP Socket Error: {e}")
+    except ldap3.core.exceptions.LDAPOperationResult as e:
+        logging.error(f"LDAP Operation Error: {e}, Result code: {e.result}")
+    except Exception as e:
+        logging.error(f"Unexpected error: {e}")
+
     """Traite un fichier JSON pour réinitialiser le mot de passe."""
     try:
         with open(file_path, 'r') as file:
