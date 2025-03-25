@@ -1,1 +1,10 @@
 config.json
+
+# Ignorer tous les fichiers logs dans tous les sous-répertoires
+**/*.log
+
+# Ignorer tous les dossiers __pycache__ et leur contenu
+**/__pycache__/
+*.pyc
+*.pyo
+*.pyd
