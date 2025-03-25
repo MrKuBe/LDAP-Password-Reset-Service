@@ -3,7 +3,9 @@ import os
 import time
 import logging
 import ldap3
+import ssl  # Add this import
 from ldap3 import Server, Connection, ALL, NTLM, MODIFY_REPLACE
+from ldap3.core.exceptions import LDAPOperationResult
 from email.mime.text import MIMEText
 from email.mime.multipart import MIMEMultipart
 import smtplib
@@ -23,23 +25,54 @@ logging.basicConfig(
 )
 
 def get_ldap_connection():
-    """Établit une connexion LDAP sécurisée."""
-    server = Server(config['ldap']['server'], use_ssl=True, get_info=ALL)
-    logging.info(f"Connecting to LDAP server: {config['ldap']['server']}")
-
-    try:
-        conn = Connection(server,
-                          user=config['ldap']['username'],
-                          password=config['ldap']['password'],
-                          authentication=NTLM)
-        if not conn.bind():
-            logging.error(f"Unable to connect to LDAP server. Bind result: {conn.result}")
-            return None
-        logging.info("Successfully connected to LDAP server.")
-        return conn
-    except Exception as e:
-        logging.error(f"Error connecting to LDAP server: {e}")
-        return None
+    """Établit une connexion LDAP sécurisée avec retries."""
+    max_retries = 3
+    retry_delay = 5  # secondes
+    
+    for attempt in range(max_retries):
+        try:
+            # Configuration du serveur avec SSL/TLS
+            server = Server(
+                config['ldap']['server'],
+                use_ssl=False,  # Changed to False as we'll use START_TLS instead
+                port=389,       # Standard LDAP port
+                connect_timeout=30,
+                get_info=ALL
+            )
+            
+            logging.info(f"Connecting to LDAP server: {config['ldap']['server']}")
+            conn = Connection(
+                server,
+                user=config['ldap']['username'],
+                password=config['ldap']['password'],
+                authentication=NTLM,
+                auto_bind=False,  # Changed to False to handle binding manually
+                receive_timeout=60
+            )
+            
+            # Establish connection and start TLS
+            if not conn.bind():
+                logging.error(f"Failed to bind to LDAP server: {conn.result}")
+                return None
+                
+            # Start TLS for secure communication
+            conn.start_tls()
+            
+            if conn.bound:
+                logging.info("Successfully connected to LDAP server.")
+                return conn
+            else:
+                logging.error(f"Failed to bind to LDAP server: {conn.result}")
+                
+        except LDAPOperationResult as e:
+            if attempt < max_retries - 1:
+                logging.warning(f"LDAP connection attempt {attempt + 1} failed: {str(e)}. Retrying in {retry_delay} seconds...")
+                time.sleep(retry_delay)
+            else:
+                logging.error(f"Failed to connect to LDAP server after {max_retries} attempts: {str(e)}")
+                raise
+    
+    return None
 
 def is_user_admin(conn, user_dn):
     """Vérifie si un utilisateur est un administrateur."""
@@ -107,8 +140,23 @@ def process_json_file(file_path, total_files):
 
     try:
         if not config['debug_mode']:
-            conn.extend.microsoft.modify_password(user_dn, new_password)
+            logging.info(f"Attempting to modify password for user DN: {user_dn}")
+            # Encoder le mot de passe au format attendu par AD
+            password_value = f'"{new_password}"'.encode('utf-16-le')
+            
+            # Utiliser la modification directe plutôt que l'extension microsoft
+            modify_password = {
+                'unicodePwd': [(MODIFY_REPLACE, [password_value])]
+            }
 
+            # Log the LDAP modify request
+            logging.info(f"LDAP modify request: DN={user_dn}, changes={modify_password}")
+
+            conn.modify(user_dn, modify_password)
+
+            # Log the result of the password modification attempt
+            logging.info(f"Password modification result: {conn.result}")
+            
             if conn.result['result'] == 0:
                 logging.info(f"Password successfully reset for {user_samAccountName}")
                 send_notification_email(user_samAccountName, new_password, sponsor_email)
@@ -118,12 +166,8 @@ def process_json_file(file_path, total_files):
             else:
                 logging.error(f"Failed to reset password for {user_samAccountName}: {conn.result['description']} (Result code: {conn.result['result']})")
 
-    except ldap3.core.exceptions.LDAPBindError as e:
-        logging.error(f"LDAP Bind Error: {e}")
-    except ldap3.core.exceptions.LDAPSocketOpenError as e:
-        logging.error(f"LDAP Socket Error: {e}")
-    except ldap3.core.exceptions.LDAPOperationResult as e:
-        logging.error(f"LDAP Operation Error: {e}, Result code: {e.result}")
+    except LDAPException as e:
+        logging.error(f"LDAP Error: {e}")
     except Exception as e:
         logging.error(f"Unexpected error: {e}")
 
