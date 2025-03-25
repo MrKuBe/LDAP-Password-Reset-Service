@@ -99,7 +99,7 @@ Place a JSON file in the monitored directory:
 
 ### Running the Service
 
-python main.py
+    python main.py
 
 ### Service Behavior
 1. Monitors shared folder for JSON files
