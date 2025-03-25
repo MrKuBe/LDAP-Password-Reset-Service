@@ -9,38 +9,38 @@ A Python service that automates Active Directory password resets by monitoring a
 - Validates user permissions before reset
 
 ### Password Management:
-    Generates secure 12-character passwords
-    Enforces complexity requirements:
-        Uppercase letters
-        Lowercase letters
-        Numbers
-        Special characters
-        Excludes username from password
+- Generates secure 12-character passwords
+- Enforces complexity requirements:
+    - Uppercase letters
+    - Lowercase letters
+    - Numbers
+    - Special characters
+    - Excludes username from password
 
 ### Email Notifications:
-    HTML-formatted emails with password information
-    Notifications sent to:
-        Request sponsor
-        IT Service desk
-    Configurable SMTP settings
+- HTML-formatted emails with password information
+- Notifications sent to:
+    - Request sponsor
+    - IT Service desk
+- Configurable SMTP settings
 
 ### Security:
-    Secure LDAP communication via START_TLS
-    Password complexity enforcement
-    VIP user protection
-    Admin account protection
-    Self-reset prevention
+- Secure LDAP communication via START_TLS
+- Password complexity enforcement
+- VIP user protection
+- Admin account protection
+- Self-reset prevention
 
 ## Prerequisites
 
 ### System Requirements
   
-+ Windows Server/Desktop
-+ Python 3.x
-+ Network access to:
-    Active Directory server (LDAP 389)
-    SMTP server
-    Network shares
+- Windows Server/Desktop
+- Python 3.x
+- Network access to:
+    - Active Directory server (LDAP 389)
+    - SMTP server
+    - Network shares
 
 ### Required Python Packages
 
@@ -48,12 +48,13 @@ A Python service that automates Active Directory password resets by monitoring a
 
 ### Active Directory Requirements
 
-+ Service account with permissions for:
-    Password resets
-    User attribute modifications    
-    AD queries
+- Service account with permissions for:
+    - Password resets
+    - User attribute modifications    
+    - AD queries
 
 ## Configuration
+
 Create a config.json file:
 
     {
@@ -90,11 +91,11 @@ Create a config.json file:
 
 Place a JSON file in the monitored directory:
 
-{
-    "samAccountName": "sponsor_username",
-    "user_samAccountName": "user_to_reset",
-    "email": "sponsor@domain.com"
-}
+    {
+        "samAccountName": "sponsor_username",
+        "user_samAccountName": "user_to_reset",
+        "email": "sponsor@domain.com"
+    }
 
 ### Running the Service
 
@@ -142,7 +143,7 @@ For issues or questions, contact your system administrator or open an issue in t
 
 MIT License
 
-Copyright (c) 2025 Bertrand Kuzbinski
+**Copyright (c) 2025 Bertrand Kuzbinski**
 
 Permission is hereby granted, free of charge, to any person obtaining a copy
 of this software and associated documentation files (the "Software"), to deal
