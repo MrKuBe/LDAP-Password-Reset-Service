@@ -4,9 +4,9 @@ A Python service that automates Active Directory password resets by monitoring a
 ## Features
 
 ### LDAP Integration:
-    Connects to Active Directory using service account credentials
-    Supports START_TLS for secure communication
-    Validates user permissions before reset
+- Connects to Active Directory using service account credentials
+- Supports START_TLS for secure communication
+- Validates user permissions before reset
 
 ### Password Management:
     Generates secure 12-character passwords
@@ -56,33 +56,33 @@ A Python service that automates Active Directory password resets by monitoring a
 ## Configuration
 Create a config.json file:
 
-{
-    "ldap": {
-        "server": "ldap://your-ad-server",
-        "username": "service_account@domain.com",
-        "password": "service_account_password",
-        "search_base": "DC=domain,DC=com",
-        "vipGroup": "CN=VIP,DC=domain,DC=com"
-    },
-    "smtp": {
-        "server": "smtp.domain.com",
-        "port": 25,
-        "fromAddress": "noreply@domain.com",
-        "use_tls": true
-    },
-    "share": {
-        "path": "\\\\server\\share\\requests"
-    },
-    "processed": {
-        "path": "\\\\server\\share\\processed"
-    },
-    "log": {
-        "file": "password-reset-service.log"
-    },
-    "scan_interval": 60,
-    "debug_mode": false,
-    "itServiceEmail": "it@domain.com"
-}
+    {
+        "ldap": {
+            "server": "ldap://your-ad-server",
+            "username": "service_account@domain.com",
+            "password": "service_account_password",
+            "search_base": "DC=domain,DC=com",
+            "vipGroup": "CN=VIP,DC=domain,DC=com"
+        },
+        "smtp": {
+            "server": "smtp.domain.com",
+            "port": 25,
+            "fromAddress": "noreply@domain.com",
+            "use_tls": true
+        },
+        "share": {
+            "path": "\\\\server\\share\\requests"
+        },
+        "processed": {
+            "path": "\\\\server\\share\\processed"
+        },
+        "log": {
+            "file": "password-reset-service.log"
+        },
+        "scan_interval": 60,
+        "debug_mode": false,
+        "itServiceEmail": "it@domain.com"
+    }
 
 ## Usage
 
