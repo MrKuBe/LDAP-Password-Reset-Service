@@ -31,6 +31,29 @@ A Python service that automates Active Directory password resets by monitoring a
 - Admin account protection
 - Self-reset prevention
 
+## Recent Enhancements
+
+### File Processing Improvements
+- Automated file archiving with timestamped filenames
+- Format: `YYYYMMDD_HHMMSS_originalname.json`
+- Duplicate handling with sequential numbering
+- Processed files are stored in configured archive directory
+
+### Error Handling Improvements
+- Automatic IT service notification for file processing errors
+- Detailed error reporting including:
+  - Source and destination file paths
+  - Error description
+  - Archive location reminder
+- Email notifications for critical errors
+- Enhanced logging for troubleshooting
+
+### Security Enhancements
+- Improved LDAP connection security with START_TLS
+- Better handling of connection retries
+- Enhanced password complexity validation
+- Secure file archiving with audit trail
+
 ## Prerequisites
 
 ### System Requirements

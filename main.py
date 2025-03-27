@@ -274,10 +274,62 @@ def send_rejection_email(sponsor_email, user_samAccountName):
         server.quit()
 
 def move_processed_file(file_path):
-    """Déplace le fichier traité vers un répertoire de sauvegarde."""
+    """Déplace le fichier traité vers un répertoire de sauvegarde avec horodatage."""
     processed_dir = config['processed']['path']
     os.makedirs(processed_dir, exist_ok=True)
-    os.rename(file_path, os.path.join(processed_dir, os.path.basename(file_path)))
+    
+    # Générer l'horodatage
+    timestamp = datetime.now().strftime('%Y%m%d_%H%M%S')
+    
+    # Obtenir le nom du fichier original
+    original_filename = os.path.basename(file_path)
+    
+    # Créer le nouveau nom de fichier avec horodatage
+    filename, extension = os.path.splitext(original_filename)
+    new_filename = f"{timestamp}_{filename}{extension}"
+    destination_path = os.path.join(processed_dir, new_filename)
+    
+    # Add counter if file exists
+    counter = 1
+    while os.path.exists(destination_path):
+        new_filename = f"{timestamp}_{filename}_{counter}{extension}"
+        destination_path = os.path.join(processed_dir, new_filename)
+        counter += 1
+    
+    try:
+        os.rename(file_path, destination_path)
+        logging.info(f"Moved and renamed processed file to: {new_filename}")
+    except Exception as e:
+        error_message = f"""
+        Error moving processed file:
+        - Source file: {file_path}
+        - Destination file: {destination_path}
+        - Error: {str(e)}
+        
+        Please note:
+        - Processed files location: {processed_dir}
+        - This error might indicate duplicate files or permission issues
+        """
+        
+        # Send error notification email to IT
+        msg = MIMEText(error_message)
+        msg['Subject'] = 'Password Reset Service - File Processing Error'
+        msg['From'] = config['smtp']['fromAddress']
+        msg['To'] = config['itServiceEmail']
+
+        try:
+            server = smtplib.SMTP(config['smtp']['server'], config['smtp']['port'])
+            if config['smtp']['use_tls']:
+                server.starttls()
+            server.sendmail(msg['From'], [config['itServiceEmail']], msg.as_string())
+            logging.info(f"Error notification sent to IT service: {config['itServiceEmail']}")
+        except Exception as mail_error:
+            logging.error(f"Failed to send error notification email: {mail_error}")
+        finally:
+            server.quit()
+            
+        logging.error(f"Error moving processed file: {e}")
+        raise
 
 def main():
     """Boucle principale du service."""
