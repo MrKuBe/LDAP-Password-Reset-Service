@@ -45,6 +45,7 @@ A Python service that automates Active Directory password resets by monitoring a
 ### Required Python Packages
 
     pip install ldap3
+    pip install cryptodrome
 
 ### Active Directory Requirements
 
